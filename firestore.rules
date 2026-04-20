@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isMember(conversationId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/conversations/$(conversationId)/members/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.get('email', '') == 'cristianoaugustonunes@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'displayName', 'email', 'isOnline']) &&
+             data.userId == request.auth.uid &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.email is string && data.email.size() <= 150;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['senderId', 'content', 'type', 'timestamp']) &&
+             (data.senderId == request.auth.uid || data.senderId == "nexus-ai") &&
+             data.content is string && data.content.size() <= 10000 &&
+             data.type in ['text', 'audio', 'video', 'image', 'system', 'file'] &&
+             data.timestamp == request.time &&
+             (!('fileName' in data) || data.fileName is string) &&
+             (!('fileSize' in data) || data.fileSize is number);
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidUser(incoming());
+      allow update: if isOwner(userId) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'bio', 'status', 'lastSeen', 'isOnline', 'preferredLanguage']);
+    }
+
+    match /conversations/{conversationId} {
+      allow get: if isMember(conversationId) || isAdmin();
+      allow list: if isSignedIn() && (request.auth.uid in resource.data.memberUids || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if (isMember(conversationId) || isAdmin()) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'updatedAt', 'name', 'photoURL', 'memberUids']);
+      
+      match /members/{memberId} {
+        allow read: if isMember(conversationId) || isAdmin();
+        allow write: if isSignedIn();
+      }
+      
+      match /messages/{messageId} {
+        allow read: if isMember(conversationId) || isAdmin();
+        allow create: if isMember(conversationId) && isValidMessage(incoming());
+        allow update: if isMember(conversationId) && incoming().diff(existing()).affectedKeys().hasOnly(['readBy', 'reactions']);
+      }
+    }
+
+    match /calls/{conversationId} {
+      allow get: if isMember(conversationId) || isAdmin();
+      allow list: if isSignedIn() && (request.auth.uid in resource.data.memberUids || isAdmin());
+      allow create: if isMember(conversationId);
+      allow update: if isMember(conversationId);
+      allow delete: if isMember(conversationId);
+
+      match /offerCandidates/{candidateId} {
+        allow read, write: if isMember(conversationId);
+      }
+      match /answerCandidates/{candidateId} {
+        allow read, write: if isMember(conversationId);
+      }
+    }
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /test/connection {
+      allow read: if isSignedIn();
+    }
+  }
+}

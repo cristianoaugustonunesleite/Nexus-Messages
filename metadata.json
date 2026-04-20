@@ -1,0 +1,6 @@
+{
+  "name": "Nexus Messenger",
+  "description": "Uma plataforma de mensagens ultrarrápida, segura e inteligente, com tradução em tempo real e assistente de IA integrado.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["REAL_TIME_MESSAGING", "AI_ASSISTANT", "CHANNELS"]
+}

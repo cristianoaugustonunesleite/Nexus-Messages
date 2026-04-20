@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Public and private user profile information.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" },
+        "bio": { "type": "string" },
+        "status": { "type": "string" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "isOnline": { "type": "boolean" },
+        "preferredLanguage": { "type": "string" }
+      },
+      "required": ["userId", "displayName", "email"]
+    },
+    "Conversation": {
+      "title": "Conversation Metadata",
+      "description": "Metadata for a chat between two or more users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["individual", "group"] },
+        "lastMessage": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "type", "createdAt", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A single message within a conversation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "audio", "video", "image"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "translations": { "type": "object" },
+        "readBy": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "senderId", "content", "timestamp", "type"]
+    },
+    "Member": {
+      "title": "Conversation Member",
+      "description": "A link between a user and a conversation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "joinedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Main conversation metadata"
+    },
+    "/conversations/{conversationId}/members/{userId}": {
+      "schema": "Member",
+      "description": "Members of the conversation"
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within the conversation"
+    }
+  }
+}
